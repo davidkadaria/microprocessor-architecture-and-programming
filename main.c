@@ -1,22 +1,49 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <pthread.h>
 #include <unistd.h> // for sleep
 
 int IS_EXIT = 0;
 int AAA = 0;
 
-void Main_Decoder(void)
+// Global state variables
+uint32_t RegWrite  = 0;
+uint32_t ImmSrc    = 0;
+uint32_t ALUSrc    = 0;
+uint32_t MemWrite  = 0;
+uint32_t ResultSrc = 0;
+uint32_t Branch    = 0;
+uint32_t ALUOp     = 0;
+
+
+
+uint32_t Extract_Bits(uint32_t input, uint32_t from, uint32_t to)
 {
-    int op;
-    switch (op)
+    uint32_t width = to - from + 1;
+    uint32_t mask = (width == 32) ? 0xFFFFFFFFU : ((1U << width) - 1);
+
+    return (input >> from) & mask;
+}
+
+void Main_Decoder(uint8_t instruction_address)
+{
+    uint32_t opcode = Extract_Bits(instruction, 0, 6);
+    
+    switch (opcode)
     {
-    case 3:
-        break;
-    case 19:
-        break;
-    default:
-        break;
+        case 3:
+            break;
+        case 19:
+            break;
+        case 35:
+            break;
+        case 51:
+            break;
+        case 99:
+            break;
+        default:
+            break;
     }
 }
 
@@ -41,10 +68,15 @@ void* SOFT_CPU_THREAD()
     Register_File[5] = 6;
     Register_File[9] = 0x2004;
     // prerequisites stop
+    
+    uint32_t instruction = Instruction_Memory[PC];
 
-    // for (int i = 0; i < 50; i++)
+    uint32_t opcode = Extract_Bits(instruction, 0, 6);
+
+    printf("Instruction = 0x%X, Opcode = %u\n", instruction, opcode);
+
+    // for (int i = 0; i < 2; i++)
     // {
-
     // }
     return NULL;
 }
