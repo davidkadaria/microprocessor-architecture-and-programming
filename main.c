@@ -28,7 +28,7 @@ uint32_t Extract_Bits(uint32_t input, uint32_t from, uint32_t to)
 
 void Main_Decoder(uint8_t instruction_address)
 {
-    uint32_t opcode = Extract_Bits(instruction, 0, 6);
+    uint32_t opcode = Extract_Bits(instruction_address, 0, 6);
     
     switch (opcode)
     {
