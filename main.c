@@ -26,13 +26,29 @@ uint32_t Extract_Bits(uint32_t input, uint32_t from, uint32_t to)
     return (input >> from) & mask;
 }
 
-void Main_Decoder(uint8_t instruction_address)
+void Main_Decoder(uint32_t instruction)
 {
-    uint32_t opcode = Extract_Bits(instruction_address, 0, 6);
+    uint32_t opcode = Extract_Bits(instruction, 0, 6);
+    
+    // reset all signals
+    RegWrite  = 0;
+    ImmSrc    = 0;
+    ALUSrc    = 0;
+    MemWrite  = 0;
+    ResultSrc = 0;
+    Branch    = 0;
+    ALUOp     = 0;
     
     switch (opcode)
     {
         case 3:
+            RegWrite  = 1;
+            ALUSrc    = 1;
+            MemWrite  = 0;
+            ResultSrc = 1;
+            Branch    = 0;
+            ALUOp     = 0;
+            ImmSrc    = 0;
             break;
         case 19:
             break;
@@ -71,9 +87,11 @@ void* SOFT_CPU_THREAD()
     
     uint32_t instruction = Instruction_Memory[PC];
 
-    uint32_t opcode = Extract_Bits(instruction, 0, 6);
+    Main_Decoder(instruction);
 
-    printf("Instruction = 0x%X, Opcode = %u\n", instruction, opcode);
+    printf("Instruction: 0x%08X\n", instruction);
+    printf("RegWrite=%u | ImmSrc=%u | ALUSrc=%u | MemWrite=%u | ResultSrc=%u | Branch=%u | ALUOp=%u\n",
+       RegWrite, ImmSrc, ALUSrc, MemWrite, ResultSrc, Branch, ALUOp);
 
     // for (int i = 0; i < 2; i++)
     // {
