@@ -26,6 +26,20 @@ uint32_t Extract_Bits(uint32_t input, uint32_t from, uint32_t to)
     return (input >> from) & mask;
 }
 
+int32_t Extend_Imm(uint32_t instruction, uint8_t immSrc)
+{
+    switch (immSrc)
+    {
+        case 0: // IMM_I
+        {
+            return ((int32_t)instruction) >> 20;
+        }
+
+        default:
+            return 0;
+    }
+}
+
 void Main_Decoder(uint32_t instruction)
 {
     uint32_t opcode = Extract_Bits(instruction, 0, 6);
@@ -41,24 +55,38 @@ void Main_Decoder(uint32_t instruction)
     
     switch (opcode)
     {
-        case 3:
+        case 0x03: // lw (I-type)
             RegWrite  = 1;
             ALUSrc    = 1;
-            MemWrite  = 0;
             ResultSrc = 1;
-            Branch    = 0;
             ALUOp     = 0;
             ImmSrc    = 0;
             break;
-        case 19:
+    
+        case 0x23: // sw (S-type)
+            ALUSrc    = 1;
+            MemWrite  = 1;
+            ALUOp     = 0;
+            ImmSrc    = 1;
             break;
-        case 35:
+    
+        case 0x63: // beq (B-type)
+            Branch    = 1;
+            ALUOp     = 1;
+            ImmSrc    = 2;
             break;
-        case 51:
+    
+        case 0x33: // R-type
+            RegWrite  = 1;
+            ALUSrc    = 0;
+            ALUOp     = 2;
             break;
-        case 99:
-            break;
-        default:
+    
+        case 0x13: // addi (I-type ALU)
+            RegWrite  = 1;
+            ALUSrc    = 1;
+            ALUOp     = 2;
+            ImmSrc    = 0;
             break;
     }
 }
@@ -88,10 +116,13 @@ void* SOFT_CPU_THREAD()
     uint32_t instruction = Instruction_Memory[PC];
 
     Main_Decoder(instruction);
+    
+    int32_t imm = Extend_Imm(instruction, ImmSrc);
 
     printf("Instruction: 0x%08X\n", instruction);
     printf("RegWrite=%u | ImmSrc=%u | ALUSrc=%u | MemWrite=%u | ResultSrc=%u | Branch=%u | ALUOp=%u\n",
        RegWrite, ImmSrc, ALUSrc, MemWrite, ResultSrc, Branch, ALUOp);
+    printf("Immediate = %d (0x%X)\n", imm, imm);
 
     // for (int i = 0; i < 2; i++)
     // {
