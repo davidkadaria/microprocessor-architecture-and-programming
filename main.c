@@ -34,7 +34,32 @@ int32_t Extend_Imm(uint32_t instruction, uint8_t immSrc)
         {
             return ((int32_t)instruction) >> 20;
         }
-
+        case 1:
+        {
+            int32_t imm =
+                (Extract_Bits(instruction, 7, 11)) |
+                (Extract_Bits(instruction, 25, 31) << 5);
+        
+            // sign extend
+            if (imm & (1 << 11))
+                imm |= 0xFFFFF000;
+        
+            return imm;
+        }
+        case 2:
+        {
+            int32_t imm =
+                (Extract_Bits(instruction, 8, 11) << 1) |
+                (Extract_Bits(instruction, 25, 30) << 5) |
+                (Extract_Bits(instruction, 7, 7) << 11) |
+                (Extract_Bits(instruction, 31, 31) << 12);
+        
+            // sign extend
+            if (imm & (1 << 12))
+                imm |= 0xFFFFE000;
+        
+            return imm;
+        }
         default:
             return 0;
     }
@@ -44,27 +69,53 @@ int32_t ALU(int32_t A, int32_t B, uint32_t ALUControl)
 {
     switch (ALUControl)
     {
-        case 0: // add
-            return A + B;
-
-        case 1: // sub
-            return A - B;
-
-        default:
-            return 0;
+        case 0: return A + B;
+        case 1: return A - B;
+        case 2: return A & B;
+        case 3: return A | B;
+        case 4: return (A < B) ? 1 : 0;
+        default: return 0;
     }
 }
 
-void ALU_Decoder(uint32_t ALUOp)
+void ALU_Decoder(uint32_t ALUOp, uint32_t funct3, uint32_t funct7)
 {
     switch (ALUOp)
     {
-        case 0: // 00 : add
-            ALUControl = 0; // 000
+        case 0: // lw, sw: ADD
+            ALUControl = 0;
             break;
 
-        case 1: // 01 : subtract
-            ALUControl = 1; // 001
+        case 1: // beq: SUB
+            ALUControl = 1;
+            break;
+
+        case 2: // R-type / addi
+            switch (funct3)
+            {
+                case 0x0:
+                    if (funct7 == 0x20)
+                        ALUControl = 1; // SUB
+                    else
+                        ALUControl = 0; // ADD
+                    break;
+                    
+                case 0x2:
+                    ALUControl = 4; // SLT
+                    break;
+                    
+                case 0x6:
+                    ALUControl = 3; // OR
+                    break;
+
+                case 0x7:
+                    ALUControl = 2; // AND
+                    break;
+
+                default:
+                    ALUControl = 0;
+                    break;
+            }
             break;
 
         default:
@@ -146,36 +197,48 @@ void* SOFT_CPU_THREAD()
     Register_File[9] = 0x2004;
     // prerequisites stop
     
-    uint32_t instruction = Instruction_Memory[PC];
+    int steps = 0;
     
-    uint32_t rs1 = Extract_Bits(instruction, 15, 19);
-    uint32_t rs2 = Extract_Bits(instruction, 20, 24);
-    uint32_t rd  = Extract_Bits(instruction, 7, 11);
-
-    Main_Decoder(instruction);
+    while (!IS_EXIT)
+    {
+        uint32_t instruction = Instruction_Memory[PC];
     
-    int32_t imm = Extend_Imm(instruction, ImmSrc);
+        uint32_t rs1 = Extract_Bits(instruction, 15, 19);
+        uint32_t rs2 = Extract_Bits(instruction, 20, 24);
+        uint32_t rd  = Extract_Bits(instruction, 7, 11);
+        uint32_t funct3 = Extract_Bits(instruction, 12, 14);
+        uint32_t funct7 = Extract_Bits(instruction, 25, 31);
     
-    ALU_Decoder(ALUOp);
+        Main_Decoder(instruction);
     
-    int32_t SrcA = Register_File[rs1];
-    int32_t SrcB = (ALUSrc) ? imm : Register_File[rs2];
+        int32_t imm = Extend_Imm(instruction, ImmSrc);
     
-    int32_t alu_result = ALU(SrcA, SrcB, ALUControl);
-
-    printf("Instruction: 0x%08X\n", instruction);
-    printf("RegWrite=%u | ImmSrc=%u | ALUSrc=%u | MemWrite=%u | ResultSrc=%u | Branch=%u | ALUOp=%u\n",
-       RegWrite, ImmSrc, ALUSrc, MemWrite, ResultSrc, Branch, ALUOp);
-    printf("Immediate = %d (0x%X)\n", imm, imm);
-    printf("rs1 = x%u (%d)\n", rs1, Register_File[rs1]);
-    printf("rs2 = x%u (%d)\n", rs2, Register_File[rs2]);
-    printf("rd  = x%u\n", rd);
-    printf("ALUControl = %u\n", ALUControl);
-    printf("ALU Result = %d (0x%X)\n", alu_result, alu_result);
-
-    // for (int i = 0; i < 2; i++)
-    // {
-    // }
+        ALU_Decoder(ALUOp, funct3, funct7);
+    
+        int32_t SrcA = Register_File[rs1];
+        int32_t SrcB = (ALUSrc) ? imm : Register_File[rs2];
+    
+        int32_t alu_result = ALU(SrcA, SrcB, ALUControl);
+    
+        printf("\nPC = 0x%X\n", PC);
+        printf("Instruction: 0x%08X\n", instruction);
+        printf("ALU Result = %d (0x%X)\n", alu_result, alu_result);
+    
+        // --- PC UPDATE ---
+        if (Branch && alu_result == 0)
+            PC = PC + imm;
+        else
+            PC = PC + 4;
+            
+        if (steps++ > 20)
+        {
+            printf("Stopped after 20 steps\n");
+            break;
+        }
+    
+        sleep(1); // slow down execution (optional)
+    }
+    
     return NULL;
 }
 
