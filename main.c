@@ -184,12 +184,7 @@ void* SOFT_CPU_THREAD()
     uint32_t Instruction_Memory[0x2000];
     uint32_t Data_Memory[0x3000];
     uint32_t Register_File[32];
-    
-    for (int i = 0; i < 32; i++)
-        Register_File[i] = 0;
-    
-    for (int i = 0; i < 0x3000; i++)
-        Data_Memory[i] = 0;
+
     printf("Hello from SOFT_CPU_THREAD\n");
 
     // prerequisites start
@@ -283,7 +278,6 @@ void* TASK_2(void* arg)
     printf("Hello from TASK_2 %d!\n", id);
     return NULL;
 }
-
 //-------------------------------------------//
 //
 //-------------------------------------------//
