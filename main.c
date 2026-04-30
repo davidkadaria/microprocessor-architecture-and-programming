@@ -95,9 +95,9 @@ void ALU_Decoder(uint32_t ALUOp, uint32_t funct3, uint32_t funct7)
             {
                 case 0x0:
                     if (funct7 == 0x20)
-                        ALUControl = 1; // SUB
+                        ALUControl = 1; // SUB (R-type only)
                     else
-                        ALUControl = 0; // ADD
+                        ALUControl = 0; // ADD / ADDI
                     break;
                     
                 case 0x2:
@@ -184,6 +184,12 @@ void* SOFT_CPU_THREAD()
     uint32_t Instruction_Memory[0x2000];
     uint32_t Data_Memory[0x3000];
     uint32_t Register_File[32];
+    
+    for (int i = 0; i < 32; i++)
+        Register_File[i] = 0;
+    
+    for (int i = 0; i < 0x3000; i++)
+        Data_Memory[i] = 0;
     printf("Hello from SOFT_CPU_THREAD\n");
 
     // prerequisites start
@@ -219,6 +225,32 @@ void* SOFT_CPU_THREAD()
         int32_t SrcB = (ALUSrc) ? imm : Register_File[rs2];
     
         int32_t alu_result = ALU(SrcA, SrcB, ALUControl);
+        
+        if (MemWrite)
+        {
+            uint32_t addr = alu_result >> 2; // byte → word address
+        
+            if (addr < 0x3000)
+            {
+                Data_Memory[addr] = Register_File[rs2];
+                printf("Memory[0x%X] = %d\n", alu_result, Register_File[rs2]);
+            }
+        }
+        
+        if (RegWrite && rd != 0)
+        {
+            if (ResultSrc == 1) // lw
+            {
+                uint32_t addr = alu_result >> 2;
+        
+                if (addr < 0x3000)
+                    Register_File[rd] = Data_Memory[addr];
+            }
+            else // ALU result
+            {
+                Register_File[rd] = alu_result;
+            }
+        }
     
         printf("\nPC = 0x%X\n", PC);
         printf("Instruction: 0x%08X\n", instruction);
@@ -236,7 +268,7 @@ void* SOFT_CPU_THREAD()
             break;
         }
     
-        sleep(1); // slow down execution (optional)
+        sleep(1); // slow down execution
     }
     
     return NULL;
@@ -251,6 +283,7 @@ void* TASK_2(void* arg)
     printf("Hello from TASK_2 %d!\n", id);
     return NULL;
 }
+
 //-------------------------------------------//
 //
 //-------------------------------------------//
